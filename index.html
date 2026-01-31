@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ISLAND AND ETERNITY</title>
+  <style>
+    :root{--bg1:#0c4a6e;--bg2:#075985;--bg3:#020617}
+    html,body{height:100%;margin:0}
+    body{display:flex;align-items:center;justify-content:center;background:linear-gradient(to bottom,var(--bg1),var(--bg2),var(--bg3));font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#e5e7eb}
+    .card{width:100%;max-width:420px;background:rgba(255,255,255,0.04);backdrop-filter:blur(8px);border-radius:16px;padding:22px;border:1px solid rgba(255,255,255,0.08);box-sizing:border-box}
+    .title{font-weight:800;font-size:32px;line-height:1;background:linear-gradient(90deg,#ff0047,#ff6a00,#ffef00,#00ff90,#00d4ff,#7a7bff,#ff57d9);background-size:400% 400%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:rainShift 6s linear infinite,glow 2.8s ease-in-out infinite;user-select:none;text-align:center}
+    @keyframes rainShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+    @keyframes glow{0%{text-shadow:0 0 6px rgba(255,255,255,0.28)}50%{text-shadow:0 0 12px rgba(255,255,255,0.45)}100%{text-shadow:0 0 6px rgba(255,255,255,0.28)}}
+    form{display:flex;gap:10px;margin-top:18px}
+    input[type=text]{flex:1;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);color:inherit;outline:none}
+    button{padding:10px 14px;border-radius:10px;border:0;background:linear-gradient(90deg,#6366f1,#ec4899);color:#fff;font-weight:700;cursor:pointer}
+    .msg{margin-top:14px;padding:10px;border-radius:10px;font-size:14px}
+    .success{background:rgba(16,185,129,0.14);border:1px solid rgba(16,185,129,0.24);color:#a7f3d0}
+    .error{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.2);color:#fecaca}
+    .info{background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.22);color:#bae6fd}
+    .note{margin-top:12px;font-size:12px;color:#9ca3af;text-align:center}
+    .admin{margin-top:16px;padding:12px;border-radius:10px;background:rgba(0,0,0,0.18);display:none}
+    .admin .row{display:flex;gap:8px;margin-bottom:8px}
+    .code-list{font-family:monospace;font-size:13px;color:#e2e8f0;max-height:130px;overflow:auto;padding:8px;background:rgba(255,255,255,0.02);border-radius:6px}
+    .admin-close{margin-top:8px;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#fff;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="title">ISLAND AND ETERNITY</div>
+    <form id="codeForm" novalidate>
+      <input id="codeInput" type="text" placeholder="Kodunuzu buraya girin" autocomplete="off">
+      <button type="submit">Gönder</button>
+    </form>
+    <div id="message" aria-live="polite"></div>
+    <div class="admin" id="adminPanel">
+      <div style="font-weight:700;margin-bottom:8px;color:#fff">Admin Paneli</div>
+      <div class="row"><input id="newCode" type="text" placeholder="Yeni kod"></div>
+      <div class="row"><input id="newReward" type="text" placeholder="Ödül"><button id="addCodeBtn" type="button">Ekle</button></div>
+      <div style="font-size:12px;color:#cbd5e1;margin-top:6px">Mevcut kodlar (maske halinde):</div>
+      <div class="code-list" id="codeList"></div>
+      <button id="closeAdmin" class="admin-close" type="button">Kapat</button>
+    </div>
+    
+  </div>
+  <script>
+    (function(){
+      var ADMIN_KEY = '9119';
+      var DEFAULT_CODES = {"77235591":"15 iron golem çağırma yumurtası","19923458":"10 adet köylü çağırma yumurtası","00125433":"₺500","08886614":"₺150","00112276":"₺200","72642045":"₺50"};
+      var CODES_KEY = 'eternity_codes_v1';
+      var USED_KEY = 'eternity_used_codes_v1';
+      function safeParse(raw){try{return JSON.parse(raw)}catch(e){return null}}
+      function loadCodes(){var raw=localStorage.getItem(CODES_KEY);var parsed=safeParse(raw);if(parsed && typeof parsed==='object')return parsed;localStorage.setItem(CODES_KEY,JSON.stringify(DEFAULT_CODES));return Object.assign({},DEFAULT_CODES)}
+      function saveCodes(obj){try{localStorage.setItem(CODES_KEY,JSON.stringify(obj))}catch(e){}
+      }
+      function getUsed(){var raw=localStorage.getItem(USED_KEY);var p=safeParse(raw);return Array.isArray(p)?p:[]}
+      function saveUsed(arr){try{localStorage.setItem(USED_KEY,JSON.stringify(arr))}catch(e){}
+      }
+      var codes = loadCodes();
+      var form = document.getElementById('codeForm');
+      var input = document.getElementById('codeInput');
+      var msgBox = document.getElementById('message');
+      var adminPanel = document.getElementById('adminPanel');
+      var newCodeInput = document.getElementById('newCode');
+      var newRewardInput = document.getElementById('newReward');
+      var addCodeBtn = document.getElementById('addCodeBtn');
+      var codeList = document.getElementById('codeList');
+      var closeAdmin = document.getElementById('closeAdmin');
+      function showMessage(text,type){msgBox.className='msg '+(type||'');msgBox.textContent=text;setTimeout(function(){msgBox.textContent='';msgBox.className=''},4500)}
+      function renderList(){var entries=Object.entries(codes);if(entries.length===0){codeList.textContent='(kod yok)';return}codeList.innerHTML=entries.map(function(pair){var c=pair[0];var r=pair[1];var m=c.replace(/.(?=.{2})/g,'*');return '<div style="margin-bottom:6px">'+m+' — '+String(r)+'</div>'}).join('')}
+      renderList();
+      form.addEventListener('submit',function(e){e.preventDefault();var v=String(input.value||'').trim();if(!v){showMessage('Lütfen bir kod girin.','error');return}if(v===ADMIN_KEY){adminPanel.style.display='block';renderList();showMessage('Admin panel açıldı.','info');input.value='';return}var used=getUsed();if(!Object.prototype.hasOwnProperty.call(codes,v)){showMessage('Geçersiz kod.','error');input.value='';return}if(used.indexOf(v)!==-1){showMessage('Bu kod zaten kullanılmış.','error');input.value='';return}var reward=codes[v];used.push(v);saveUsed(used);showMessage('Kod kabul edildi — Ödül: '+String(reward),'success');input.value=''});
+      addCodeBtn.addEventListener('click',function(){var c=String(newCodeInput.value||'').trim();var r=String(newRewardInput.value||'').trim();if(!c){showMessage('Yeni kod girin.','error');return}if(!r){showMessage('Ödül bilgisini girin.','error');return}if(Object.prototype.hasOwnProperty.call(codes,c)){showMessage('Bu kod zaten mevcut.','error');return}codes[c]=r;saveCodes(codes);renderList();newCodeInput.value='';newRewardInput.value='';showMessage('Yeni kod eklendi.','success')});
+      closeAdmin.addEventListener('click',function(){adminPanel.style.display='none';showMessage('Admin panel kapatıldı.','info')});
+      window._resetUsedCodes=function(){localStorage.removeItem(USED_KEY);showMessage('Kullanılmış kodlar sıfırlandı.','info')};
+      window._resetAll=function(){localStorage.removeItem(USED_KEY);localStorage.removeItem(CODES_KEY);codes=loadCodes();renderList();showMessage('Tüm local veriler sıfırlandı.','info')};
+    })();
+  </script>
+</body>
+</html>
